@@ -1,0 +1,18 @@
+# Shadow Attack Framework Configuration
+framework:
+  name: "Shadow Attack Framework"
+  version: "1.0.0"
+  author: "Shadow Core"
+
+scanner:
+  default_threads: 100
+  timeout: 1
+  default_ports: "1-1024"
+
+recon:
+  dns_timeout: 5
+  whois_timeout: 10
+
+output:
+  dir: "./output"
+  format: "html"
