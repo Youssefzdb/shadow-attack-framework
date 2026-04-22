@@ -1,58 +1,50 @@
-#!/usr/bin/env python3
-"""Reconnaissance & OSINT Module"""
 import socket
 import subprocess
-import json
-from utils.logger import Logger
 
 class Recon:
-    def __init__(self, target: str, mode: str, logger: Logger):
+    def __init__(self, target, mode, logger):
         self.target = target
         self.mode = mode
         self.logger = logger
-        self.results = {}
 
-    def _dns_lookup(self):
+    def resolve_dns(self):
         try:
             ip = socket.gethostbyname(self.target)
-            self.results["ip"] = ip
-            self.logger.success(f"DNS Resolved: {self.target} -> {ip}")
+            self.logger.info(f"[DNS] {self.target} -> {ip}")
+            return ip
         except Exception as e:
-            self.logger.error(f"DNS lookup failed: {e}")
+            self.logger.error(f"[DNS] Failed: {e}")
+            return None
 
-    def _reverse_dns(self, ip: str):
-        try:
-            hostname = socket.gethostbyaddr(ip)[0]
-            self.results["hostname"] = hostname
-            self.logger.success(f"Reverse DNS: {ip} -> {hostname}")
-        except:
-            self.logger.warning("Reverse DNS: no result")
-
-    def _whois(self):
+    def whois_lookup(self):
+        self.logger.info(f"[WHOIS] Querying {self.target}...")
         try:
             result = subprocess.run(["whois", self.target], capture_output=True, text=True, timeout=10)
-            self.results["whois"] = result.stdout[:500]
-            self.logger.success("WHOIS data retrieved")
+            lines = [l for l in result.stdout.splitlines() if l.strip() and not l.startswith("%")][:20]
+            for line in lines:
+                self.logger.info(f"  {line}")
+        except FileNotFoundError:
+            self.logger.warning("[WHOIS] whois not installed")
         except Exception as e:
-            self.logger.warning(f"WHOIS failed: {e}")
+            self.logger.error(f"[WHOIS] Error: {e}")
 
-    def _active_ping(self):
+    def banner_grab(self, port=80):
         try:
-            result = subprocess.run(["ping", "-c", "3", self.target], capture_output=True, text=True, timeout=10)
-            alive = result.returncode == 0
-            self.results["ping"] = "alive" if alive else "unreachable"
-            self.logger.success(f"Ping: host is {alive if alive else unreachable}")
+            s = socket.socket()
+            s.settimeout(3)
+            s.connect((self.target, port))
+            s.send(b"HEAD / HTTP/1.0\r\n\r\n")
+            banner = s.recv(1024).decode(errors="ignore")
+            self.logger.info(f"[BANNER] Port {port}: {banner[:200]}")
+            s.close()
         except Exception as e:
-            self.logger.warning(f"Ping failed: {e}")
+            self.logger.warning(f"[BANNER] Port {port}: {e}")
 
     def run(self):
-        self.logger.info(f"[*] Starting {self.mode} recon on {self.target}")
-        self._dns_lookup()
-        if "ip" in self.results:
-            self._reverse_dns(self.results["ip"])
-        self._whois()
-        if self.mode == "active":
-            self._active_ping()
-        self.logger.info(f"[*] Recon complete.")
-        print(json.dumps(self.results, indent=2))
-        return self.results
+        self.logger.info(f"[*] Starting {'passive' if self.mode == 'passive' else 'active'} recon on {self.target}")
+        ip = self.resolve_dns()
+        self.whois_lookup()
+        if self.mode == "active" and ip:
+            for port in [80, 443, 22, 21]:
+                self.banner_grab(port)
+        self.logger.info("[+] Recon complete")
