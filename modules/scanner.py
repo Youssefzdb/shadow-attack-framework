@@ -1,59 +1,53 @@
+#!/usr/bin/env python3
+"""Port & Service Scanner Module"""
 import socket
 import threading
-from queue import Queue
+from utils.logger import Logger
 
 class PortScanner:
-    def __init__(self, target, ports, threads, logger):
+    def __init__(self, target: str, ports: str, threads: int, logger: Logger):
         self.target = target
         self.ports = self._parse_ports(ports)
         self.threads = threads
         self.logger = logger
         self.open_ports = []
-        self.queue = Queue()
+        self.lock = threading.Lock()
 
-    def _parse_ports(self, port_range):
-        start, end = port_range.split("-")
-        return range(int(start), int(end) + 1)
+    def _parse_ports(self, port_range: str):
+        if "-" in port_range:
+            start, end = port_range.split("-")
+            return range(int(start), int(end)+1)
+        return [int(p) for p in port_range.split(",")]
 
-    def _scan_port(self, port):
+    def _scan_port(self, port: int):
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.settimeout(0.5)
+            sock.settimeout(1)
             result = sock.connect_ex((self.target, port))
-            sock.close()
             if result == 0:
-                self.open_ports.append(port)
-                service = self._detect_service(port)
-                self.logger.info(f"[OPEN] {self.target}:{port} ({service})")
+                try:
+                    service = socket.getservbyport(port)
+                except:
+                    service = "unknown"
+                with self.lock:
+                    self.open_ports.append((port, service))
+                self.logger.success(f"Port {port}/tcp OPEN [{service}]")
+            sock.close()
         except Exception:
             pass
 
-    def _detect_service(self, port):
-        services = {
-            21: "FTP", 22: "SSH", 23: "Telnet", 25: "SMTP",
-            53: "DNS", 80: "HTTP", 110: "POP3", 143: "IMAP",
-            443: "HTTPS", 445: "SMB", 3306: "MySQL",
-            3389: "RDP", 5432: "PostgreSQL", 6379: "Redis",
-            8080: "HTTP-Alt", 8443: "HTTPS-Alt"
-        }
-        return services.get(port, "Unknown")
-
-    def _worker(self):
-        while not self.queue.empty():
-            port = self.queue.get()
-            self._scan_port(port)
-            self.queue.task_done()
-
     def run(self):
-        self.logger.info(f"[*] Scanning {self.target} — Ports: {self.ports.start}-{self.ports.stop - 1}")
+        self.logger.info(f"[*] Scanning {self.target} ...")
+        threads = []
         for port in self.ports:
-            self.queue.put(port)
-        workers = []
-        for _ in range(min(self.threads, len(self.ports))):
-            t = threading.Thread(target=self._worker)
-            t.daemon = True
+            t = threading.Thread(target=self._scan_port, args=(port,))
+            threads.append(t)
             t.start()
-            workers.append(t)
-        self.queue.join()
-        self.logger.info(f"[+] Scan complete. Open ports: {self.open_ports}")
+            if len(threads) >= self.threads:
+                for t in threads:
+                    t.join()
+                threads = []
+        for t in threads:
+            t.join()
+        self.logger.info(f"[*] Scan complete. {len(self.open_ports)} open ports found.")
         return self.open_ports
